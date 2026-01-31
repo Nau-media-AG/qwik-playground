@@ -23,7 +23,7 @@ export function inlineTaskPlugin(): Plugin {
     enforce: "pre",
 
     transform(code, id) {
-      if (!/\.[jt]sx?$/.test(id)) return;
+      if (!/\.[jt]sx$/.test(id)) return;
       if (!code.includes("useInlineTask")) return;
       if (id.includes("node_modules")) return;
 
@@ -130,6 +130,7 @@ function applyAutoCapture(
   const scopeNames = collectScopeDeclarations(
     enclosing,
     call.getStart(sourceFile),
+    sourceFile,
   );
   if (scopeNames.size === 0) return;
 
@@ -278,13 +279,20 @@ function findEnclosingFunction(
 function collectScopeDeclarations(
   scope: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
   beforePos: number,
+  sourceFile?: ts.SourceFile,
 ): Set<string> {
   const names = new Set<string>();
+
+  // Include the enclosing function's own parameters
+  for (const param of scope.parameters) {
+    collectBindingNames(param.name, names);
+  }
+
   const body = scope.body;
   if (!body || !ts.isBlock(body)) return names;
 
   for (const stmt of body.statements) {
-    if (stmt.getStart() >= beforePos) break;
+    if (stmt.getStart(sourceFile) >= beforePos) break;
 
     if (ts.isVariableStatement(stmt)) {
       for (const decl of stmt.declarationList.declarations) {
@@ -372,14 +380,45 @@ function findFreeVarRefs(
       return;
     }
 
+    // ---- new scope for for-loops (loop variable is scoped to the loop) ----
+    if (
+      ts.isForStatement(node) ||
+      ts.isForOfStatement(node) ||
+      ts.isForInStatement(node)
+    ) {
+      const loopScope: Scope = { names: new Set(), parent: scope };
+      const init = node.initializer;
+      if (init && ts.isVariableDeclarationList(init)) {
+        for (const decl of init.declarations) {
+          collectBindingNames(decl.name, loopScope.names);
+        }
+      }
+      ts.forEachChild(node, (c) => walk(c, loopScope));
+      return;
+    }
+
+    // ---- new block scope for non-function blocks ----
+    if (ts.isBlock(node)) {
+      const blockScope: Scope = { names: new Set(), parent: scope };
+      ts.forEachChild(node, (c) => walk(c, blockScope));
+      return;
+    }
+
+    // ---- new scope for catch clause ----
+    if (ts.isCatchClause(node)) {
+      const catchScope: Scope = { names: new Set(), parent: scope };
+      if (node.variableDeclaration) {
+        collectBindingNames(node.variableDeclaration.name, catchScope.names);
+      }
+      ts.forEachChild(node, (c) => walk(c, catchScope));
+      return;
+    }
+
     // ---- collect declarations in current scope ----
     if (ts.isVariableStatement(node)) {
       for (const decl of node.declarationList.declarations) {
         collectBindingNames(decl.name, scope.names);
       }
-    }
-    if (ts.isCatchClause(node) && node.variableDeclaration) {
-      collectBindingNames(node.variableDeclaration.name, scope.names);
     }
 
     // ---- check identifiers ----
@@ -431,6 +470,9 @@ function isVariableReference(node: ts.Identifier): boolean {
   if (ts.isContinueStatement(parent) && parent.label === node) return false;
   if (ts.isBindingElement(parent) && parent.propertyName === node)
     return false;
+
+  // Identifiers inside type annotations / type references are not value references
+  if (ts.isTypeNode(parent)) return false;
 
   return true;
 }

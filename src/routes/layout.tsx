@@ -10,6 +10,11 @@ export default component$(() => {
     { href: "/b/", label: "Page B" },
     { href: "/c/", label: "Page C" },
     { href: "/d/", label: "Page D" },
+    { href: "/e/", label: "Page E" },
+    { href: "/f/", label: "Page F" },
+    { href: "/g/", label: "Page G" },
+    { href: "/h/", label: "Page H" },
+    { href: "/i/", label: "Page I" },
   ];
 
   return (

@@ -1,4 +1,4 @@
-import { component$ } from "@builder.io/qwik";
+import { component$, useResource$ } from "@builder.io/qwik";
 import { type DocumentHead } from "@builder.io/qwik-city";
 import { useInlineTask } from "~/hooks/use-inline-task";
 
@@ -6,6 +6,14 @@ export default component$(() => {
   const pageName = "Page A";
   const accentColor = "#00d2ff";
   const boxCount = 5;
+
+  const resource = useResource$( async ({ track }) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    return {
+      "text": "Resource Promise return was correctly resolved"
+    }
+  });
 
   useInlineTask(() => {
     const el = document.getElementById("inline-status");
@@ -28,6 +36,8 @@ export default component$(() => {
         container.appendChild(box);
       }
     }
+
+    console.log(resource.value);
   });
 
   return (
