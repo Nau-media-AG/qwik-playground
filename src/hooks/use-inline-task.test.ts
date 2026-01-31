@@ -84,9 +84,9 @@ describe("Issue #1: XSS via </script> in captured values", () => {
 // Issue #10 — Non-serializable captured values
 // ---------------------------------------------------------------------------
 describe("Issue #10: captured value edge cases", () => {
-  it("resolves Qwik signals via isSignal", () => {
+  it("resolves Qwik signals as {value} wrappers so .value access works in the script", () => {
     const fn = (__scope: any) => {
-      console.log(__scope.count);
+      console.log(__scope.count.value);
     };
     const fakeSignal = { value: 42 };
     const captures = { count: fakeSignal };
@@ -94,7 +94,7 @@ describe("Issue #10: captured value edge cases", () => {
     const result = useInlineTask(fn as any, captures);
     const code = getScriptContent(result);
 
-    expect(code).toContain('"count":42');
+    expect(code).toContain('"count":{"value":42}');
   });
 });
 

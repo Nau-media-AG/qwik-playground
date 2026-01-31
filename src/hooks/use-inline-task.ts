@@ -92,7 +92,7 @@ export function useInlineTask(
         pendingResources.push({ key, resource: val });
       }
     } else {
-      resolved[key] = isSignal(val) ? val.value : val;
+      resolved[key] = isSignal(val) ? { value: val.value } : val;
     }
   }
 

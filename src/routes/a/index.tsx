@@ -1,11 +1,11 @@
-import { component$, useResource$ } from "@builder.io/qwik";
+import { component$, useResource$, useSignal } from "@builder.io/qwik";
 import { type DocumentHead } from "@builder.io/qwik-city";
 import { useInlineTask } from "~/hooks/use-inline-task";
 
 export default component$(() => {
   const pageName = "Page A";
   const accentColor = "#00d2ff";
-  const boxCount = 5;
+  const boxCount = useSignal(5);
 
   const resource = useResource$( async ({ track }) => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -26,13 +26,13 @@ export default component$(() => {
     const container = document.getElementById("boxes");
     if (container) {
       container.innerHTML = "";
-      for (let i = 0; i < boxCount; i++) {
+      for (let i = 0; i < boxCount.value; i++) {
         const box = document.createElement("div");
         box.style.cssText =
           "width:48px;height:48px;border-radius:8px;display:inline-block;margin:4px;background:" +
           accentColor +
           ";opacity:" +
-          ((i + 1) / boxCount);
+          ((i + 1) / boxCount.value);
         container.appendChild(box);
       }
     }
@@ -58,6 +58,8 @@ export default component$(() => {
       >
         Waiting for inline script...
       </div>
+      <p>Box count: {boxCount.value}</p>
+      <button onClick$={() => boxCount.value++}>Increment box count</button>
       <div id="boxes" style={{ marginTop: "16px" }} />
     </div>
   );
