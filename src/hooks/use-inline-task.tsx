@@ -1,25 +1,5 @@
-import {
-  type Signal,
-  Slot,
-  component$,
-  createContextId,
-  isSignal,
-  useContext,
-  useContextProvider,
-  useStore,
-} from "@builder.io/qwik";
-
-interface InlineScriptEntry {
-  code: string;
-}
-
-interface InlineTaskStore {
-  scripts: InlineScriptEntry[];
-}
-
-const InlineTaskContext = createContextId<InlineTaskStore>(
-  "InlineTaskContext",
-);
+import { isSignal } from "@builder.io/qwik";
+import type { JSXOutput } from "@builder.io/qwik";
 
 /**
  * Renders an inline `<script>` tag that executes immediately during HTML parsing.
@@ -33,46 +13,39 @@ const InlineTaskContext = createContextId<InlineTaskStore>(
  * - Feature flags
  * - Initialization code
  *
- * **Constraints:**
- * - The function must be self-contained — it cannot reference variables from
- *   the outer scope (closures won't work since it's serialized to a string).
- * - Pass server-computed values via the captures object.
- * - Signals are automatically unwrapped (`.value` extracted).
- * - Capture values must be JSON-serializable.
+ * **How it works:**
+ * - Just call `useInlineTask(() => { ... })` at the top of your component.
+ * - The Vite plugin (`vite-plugin-inline-task`) handles everything else:
+ *   1. Detects component-scope variables referenced in the body
+ *   2. Rewrites them to use a scope parameter
+ *   3. Appends a captures object
+ *   4. Auto-injects the `<script>` into the component's JSX return
+ *
+ * No manual captures, no JSX placement, no provider needed.
  *
  * @example
  * ```tsx
- * useInlineTask(() => {
- *   const theme = localStorage.getItem('theme') || 'light';
- *   document.documentElement.setAttribute('data-theme', theme);
+ * export default component$(() => {
+ *   const bgColor = '#1a1a2e';
+ *
+ *   useInlineTask(() => {
+ *     document.body.style.background = bgColor; // auto-captured!
+ *   });
+ *
+ *   return <div>App</div>; // <script> auto-injected here
  * });
  * ```
- *
- * @example With captures
- * ```tsx
- * const theme = useSignal('dark');
- * const appName = 'MyApp';
- *
- * useInlineTask(
- *   (vars) => {
- *     document.documentElement.setAttribute('data-theme', vars.theme);
- *     console.log(vars.appName);
- *   },
- *   { theme, appName }
- * );
- * ```
  */
-export function useInlineTask(fn: () => void): void;
-export function useInlineTask<T extends Record<string, unknown>>(
-  fn: (vars: { [K in keyof T]: T[K] extends Signal<infer V> ? V : T[K] }) => void,
-  captures: T,
-): void;
-export function useInlineTask<T extends Record<string, unknown>>(
-  fn: ((vars: Record<string, unknown>) => void) | (() => void),
-  captures?: T,
-): void {
-  const store = useContext(InlineTaskContext);
-
+export function useInlineTask(fn: () => void): JSXOutput;
+// internal overload — the Vite plugin generates calls with a captures object
+export function useInlineTask(
+  fn: (...args: never[]) => void,
+  captures: Record<string, unknown>,
+): JSXOutput;
+export function useInlineTask(
+  fn: (...args: never[]) => void,
+  captures?: Record<string, unknown>,
+): JSXOutput {
   let code: string;
 
   if (captures !== undefined) {
@@ -86,29 +59,5 @@ export function useInlineTask<T extends Record<string, unknown>>(
     code = `(${fn.toString()})()`;
   }
 
-  store.scripts.push({ code });
+  return <script dangerouslySetInnerHTML={code} />;
 }
-
-const InlineScriptRenderer = component$(() => {
-  const store = useContext(InlineTaskContext);
-
-  return (
-    <>
-      {store.scripts.map((entry, i) => (
-        <script key={i} dangerouslySetInnerHTML={entry.code} />
-      ))}
-    </>
-  );
-});
-
-export const InlineTaskProvider = component$(() => {
-  const store = useStore<InlineTaskStore>({ scripts: [] }, { deep: false });
-  useContextProvider(InlineTaskContext, store);
-
-  return (
-    <>
-      <Slot />
-      <InlineScriptRenderer />
-    </>
-  );
-});

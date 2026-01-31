@@ -3,8 +3,9 @@ import { type DocumentHead } from "@builder.io/qwik-city";
 import { useInlineTask } from "~/hooks/use-inline-task";
 
 export default component$(() => {
-  const pageName = "Home";
-  const accentColor = "#e94560";
+  const pageName = "Page A";
+  const accentColor = "#00d2ff";
+  const boxCount = 5;
 
   useInlineTask(() => {
     const el = document.getElementById("inline-status");
@@ -13,13 +14,26 @@ export default component$(() => {
         "Inline script executed on " + pageName + " at " + new Date().toLocaleTimeString();
       el.style.borderColor = accentColor;
     }
+
+    const container = document.getElementById("boxes");
+    if (container) {
+      container.innerHTML = "";
+      for (let i = 0; i < boxCount; i++) {
+        const box = document.createElement("div");
+        box.style.cssText =
+          "width:48px;height:48px;border-radius:8px;display:inline-block;margin:4px;background:" +
+          accentColor +
+          ";opacity:" +
+          ((i + 1) / boxCount);
+        container.appendChild(box);
+      }
+    }
   });
 
   return (
     <div style={{ padding: "24px", fontFamily: "monospace" }}>
-      <h1>Home</h1>
-      <p>Welcome to the useInlineTask demo. Navigate between pages to test client-side routing.</p>
-      <p>Each page has its own <code>useInlineTask</code> that writes a timestamped message below.</p>
+      <h1 style={{ color: "#00d2ff" }}>Page A</h1>
+      <p>This page's inline script generates a gradient of colored boxes.</p>
       <div
         id="inline-status"
         style={{
@@ -34,10 +48,11 @@ export default component$(() => {
       >
         Waiting for inline script...
       </div>
+      <div id="boxes" style={{ marginTop: "16px" }} />
     </div>
   );
 });
 
 export const head: DocumentHead = {
-  title: "Home — useInlineTask Demo",
+  title: "Page A — useInlineTask Demo",
 };
